@@ -1,0 +1,64 @@
+# ---------- Render Blueprint (Infrastructure as Code) ----------
+# Alternative to scripts/deploy_render.py: connect the repo in the Render
+# dashboard and Render will create this service from the blueprint.
+#
+# Free instance notes that shaped this configuration:
+#   * renders free web services spin down after 15 minutes without inbound
+#     traffic and take ~1 minute to wake, so a webhook (push) model is used
+#     rather than Telegram long-polling: an idle service stays cheap and still
+#     wakes instantly when a message arrives.
+#   * the filesystem is ephemeral, so durable state is mirrored to a private
+#     Gist (PERSISTENCE_BACKEND=chained) instead of relying on local disk.
+#   * persistent disks are NOT available on the free plan, which is exactly why
+#     Gist-backed persistence is used.
+services:
+  - type: web
+    name: auton-agent
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: MODEL_PROVIDER
+        value: ollama_cloud
+      - key: OLLAMA_BASE_URL
+        value: https://ollama.com
+      - key: MODEL_PRIMARY
+        value: gpt-oss:20b
+      - key: MODEL_FALLBACKS
+        value: nemotron-3-nano:30b,gemma4:31b
+      - key: TELEGRAM_MODE
+        value: webhook
+      - key: PERSISTENCE_BACKEND
+        value: chained
+      - key: SANDBOX_ENABLED
+        value: "true"
+      - key: SANDBOX_TIMEOUT_SECONDS
+        value: "60"
+      - key: SANDBOX_MAX_MEMORY_MB
+        value: "512"
+      - key: AGENT_MAX_STEPS
+        value: "40"
+      - key: AGENT_MAX_SECONDS
+        value: "900"
+      - key: LOG_LEVEL
+        value: INFO
+      # Secrets are deliberately NOT in this file. Set them in the Render
+      # dashboard (or via scripts/deploy_render.py, which reads them from the
+      # environment). See CREDENTIALS.md for the required list.
+      - key: OLLAMA_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_ALLOWED_USERS
+        sync: false
+      - key: API_AUTH_TOKEN
+        sync: false
+      - key: GIST_ID
+        sync: false
+      - key: GIST_API_KEY
+        sync: false

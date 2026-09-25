@@ -1,0 +1,22 @@
+# Secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# Runtime state (ephemeral on Render; mirrored to Gist when configured)
+.agentstate/
+workspace/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# OS
+.DS_Store
