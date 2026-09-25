@@ -160,9 +160,15 @@ milliseconds and runs the task in the background, so a cold start never causes a
 
 Stated plainly, because the agent is required to be accurate about itself:
 
-- **GLM 5.2 is configured but not reachable on this Ollama Cloud key.** The tier does not
-  include it, so the router serves `gpt-oss:20b` and reports which model actually answered.
-  With an entitled key, GLM 5.2 is used automatically with no code change.
+- **The primary model is `gpt-oss:120b`, chosen by probing, not by name.** The Ollama Cloud
+  catalogue was walked model by model; the most capable entries (`glm-5.3`, `glm-5.2`,
+  `kimi-k3`, `deepseek-v4-pro`, `minimax-m3`, `mistral-large-3`) all return **HTTP 402**
+  ("not included in your free usage") on this key. Every model in the configured chain was
+  confirmed to answer *and* to support tool calling. The router reports which model
+  actually answered rather than claiming the configured one did.
+- **Real-time web search works, and is the provider's own endpoint.** The agent searches
+  live via Ollama Cloud's `POST /api/web_search`, which returns current results *with*
+  extracted page text. HTML-scraping a search engine remains as a labelled fallback only.
 - **No sub-agent fan-out yet.** The architecture has the seam (`Registry`, isolated task
   scope) but parallel workers are not implemented; on 0.1 CPU they would not pay off.
 - **No browser automation.** HTTP fetching only; no JS-rendered pages.

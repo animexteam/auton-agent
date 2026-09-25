@@ -26,9 +26,9 @@ services:
       - key: OLLAMA_BASE_URL
         value: https://ollama.com
       - key: MODEL_PRIMARY
-        value: gpt-oss:20b
+        value: gpt-oss:120b
       - key: MODEL_FALLBACKS
-        value: nemotron-3-nano:30b,gemma4:31b
+        value: nemotron-3-ultra,gpt-oss:20b,nemotron-3-nano:30b,nemotron-3-super,gemma4:31b
       - key: TELEGRAM_MODE
         value: webhook
       - key: PERSISTENCE_BACKEND

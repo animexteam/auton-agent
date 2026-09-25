@@ -158,6 +158,20 @@ class ModelRouter:
     async def aclose(self) -> None:
         await self._provider.aclose()
 
+    async def search(self, query: str, *, max_results: int = 5) -> list[Any]:
+        """Real-time search via the provider, if it offers one.
+
+        Deliberately not model-routed: search is a provider capability, not a
+        generation, so there is nothing to fall back *between*. An empty list
+        means the provider has no search or it failed, and the caller decides
+        what to do next.
+        """
+        try:
+            return await self._provider.search(query, max_results=max_results)
+        except Exception as exc:  # noqa: BLE001 - search must never break a task
+            log.warning("provider search failed", extra={"error": str(exc)[:200]})
+            return []
+
 
 def build_provider(config: ModelConfig, client: Any | None = None) -> LLMProvider:
     """Instantiate the provider named by configuration.

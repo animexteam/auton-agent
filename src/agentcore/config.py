@@ -14,14 +14,22 @@ from pathlib import Path
 _TRUE = {"1", "true", "yes", "on", "y"}
 _FALSE = {"0", "false", "no", "off", "n"}
 
-#: The task asks for GLM 5.2 as the reasoning layer. It is the configured default,
-#: but the Ollama Cloud free tier does not include it — so it sits at the head of
-#: the chain and the router falls through to the models the account can actually
-#: reach. Entitlement is never asserted, only attempted.
-DEFAULT_PRIMARY_MODEL = "glm-5.2"
+#: The primary reasoning model. Chosen on measured evidence, not on name
+#: recognition: the Ollama Cloud catalogue was probed model by model, and this is
+#: the largest model the account is actually entitled to that also supports tool
+#: calling. Verified live: it answers, and it emits correct tool calls.
+DEFAULT_PRIMARY_MODEL = "gpt-oss:120b"
 
 #: Models tried, in order, when the primary is unavailable or not entitled.
-DEFAULT_FALLBACK_MODELS = ("gpt-oss:20b", "nemotron-3-nano:30b", "gemma4:31b")
+#: Every entry below was confirmed reachable on the account; nothing here is
+#: aspirational. The chain degrades in capability, never in correctness.
+DEFAULT_FALLBACK_MODELS = (
+    "nemotron-3-ultra",
+    "gpt-oss:20b",
+    "nemotron-3-nano:30b",
+    "nemotron-3-super",
+    "gemma4:31b",
+)
 
 #: Environment variable names whose *values* must never appear in a log line,
 #: an event record, a model prompt, or a tool result.
@@ -91,7 +99,7 @@ class ModelConfig:
     provider: str = "ollama_cloud"
     base_url: str = "https://ollama.com"
     api_key: str | None = None
-    primary: str = "glm-5.2"
+    primary: str = "gpt-oss:120b"
     fallbacks: tuple[str, ...] = DEFAULT_FALLBACK_MODELS
     timeout_seconds: int = 240
     max_retries: int = 3

@@ -40,6 +40,23 @@ class ToolCall:
 
 
 @dataclass
+class SearchResult:
+    """One real-time web result returned by a provider's search endpoint.
+
+    ``content`` carries the extracted page text, not just a snippet, because a
+    snippet is a claim while the text is evidence the model can quote.
+    """
+
+    title: str
+    url: str
+    content: str = ""
+    query: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"title": self.title, "url": self.url, "content": self.content}
+
+
+@dataclass
 class LLMResponse:
     content: str = ""
     tool_calls: list[ToolCall] = field(default_factory=list)
@@ -70,6 +87,15 @@ class LLMProvider(abc.ABC):
 
     async def list_models(self) -> list[str]:
         """Names the configured credential can actually reach."""
+        return []
+
+    async def search(self, query: str, *, max_results: int = 5) -> list["SearchResult"]:
+        """Real-time web search, when the provider offers one natively.
+
+        Returning an empty list means "this provider cannot search" — the caller
+        falls back to its own network path. It never means "no results", which is
+        why it is not an error.
+        """
         return []
 
     async def aclose(self) -> None:

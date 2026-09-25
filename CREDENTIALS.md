@@ -16,20 +16,31 @@ OLLAMA_API_KEY=
     Get it from https://ollama.com/settings/keys
 
 
-TELEGRAM  (required to use the bot)
+TELEGRAM  (required to use the bot — NOW ACTIVE)
 
 TELEGRAM_BOT_TOKEN=
     Bot token from @BotFather. Without it the agent still runs and serves its
     HTTP API; only the Telegram channel is disabled.
+    ACTIVE: the bot @iProAiBot (id 7920481178) is registered and live.
+    If this token is ever revoked with /revoke in @BotFather, issue a new one,
+    update .env, then re-run BOTH:
+        python scripts/push_env.py
+        python scripts/set_webhook.py --url https://auton-agent.onrender.com
+    (the webhook registration is bound to the token, so it must be redone).
 
 TELEGRAM_ALLOWED_USERS=
     Comma-separated numeric Telegram user IDs permitted to use the agent.
-    Get your own id from @userinfobot. LEAVE THIS EMPTY AND EVERY MESSAGE IS
-    DENIED — that is the safe default. This is the primary access control.
+    Get your own id from @userinfobot — or, once you are already on the list,
+    send the bot /whoami.
+    ACTIVE: currently holds the operator's id.
+    LEAVE THIS EMPTY AND EVERY MESSAGE IS DENIED — that is the safe default.
+    This is the primary access control.
 
 TELEGRAM_WEBHOOK_SECRET=
     Optional but recommended. Any random string. Telegram echoes it back on every
     webhook call so forged requests are rejected.
+    ACTIVE: set, and verified — a request without it (or with a wrong value)
+    receives 403.
     (Generate: openssl rand -hex 32)
 
 
@@ -38,6 +49,10 @@ PERSISTENT STORAGE  (required — the filesystem is ephemeral)
 GIST_API_KEY=
     GitHub token with the `gist` scope, used for the durable state mirror.
     A classic token with ONLY `gist` is sufficient for the running agent.
+    NOTE: scripts/push_env.py falls back to GITHUB_API_KEY when this is unset,
+    matching config.py. This matters because Render's PUT /env-vars REPLACES the
+    whole variable set — a silently skipped secret would be DELETED from the
+    running service, taking durable state with it.
 
 GIST_ID=
     LEAVE BLANK. The agent discovers its own state gist on boot, or creates one,
@@ -77,12 +92,18 @@ OTHER REQUIRED CONFIGURATION
 ========================================
 Non-secret settings with working defaults. Change only if you have a reason to.
 
-MODEL_PRIMARY=glm-5.2
-    Defaults to GLM 5.2 as specified. If the account is not entitled to it the
-    router falls back automatically — see MODEL_FALLBACKS. No code change needed.
+MODEL_PRIMARY=gpt-oss:120b
+    Selected by probing the account's real entitlement, not by picking a
+    recognisable name. Walking the Ollama Cloud catalogue model by model showed
+    that the more capable entries (glm-5.3, glm-5.2, kimi-k3, deepseek-v4-pro,
+    minimax-m3, mistral-large-3) all return HTTP 402 "not included in your free
+    usage" on a standard key. gpt-oss:120b is the largest model that actually
+    answers AND supports tool calling. Point MODEL_PRIMARY at anything stronger
+    once the key is entitled — no code change needed.
 
-MODEL_FALLBACKS=gpt-oss:20b,nemotron-3-nano:30b,gemma4:31b
-    Tried in order when the primary is unavailable or not entitled.
+MODEL_FALLBACKS=nemotron-3-ultra,gpt-oss:20b,nemotron-3-nano:30b,nemotron-3-super,gemma4:31b
+    Tried in order when the primary is unavailable or not entitled. Every entry
+    was individually verified to answer on this account.
 
 MODEL_PROVIDER=ollama_cloud
 OLLAMA_BASE_URL=https://ollama.com
@@ -97,6 +118,8 @@ TELEGRAM_MODE=webhook
 
 TELEGRAM_MAX_REQUESTS_PER_MINUTE=6
     Per-user rate limit. Protects the free model quota and the small CPU.
+    Observed working: a burst from one chat produced two `telegram.denied`
+    events with reason `rate_limited` rather than overloading the agent.
 
 AGENT_MAX_STEPS=40
 AGENT_MAX_SECONDS=900

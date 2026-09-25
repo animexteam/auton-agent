@@ -29,8 +29,8 @@ SERVICES = {
 PLAIN = {
     "MODEL_PROVIDER": "ollama_cloud",
     "OLLAMA_BASE_URL": "https://ollama.com",
-    "MODEL_PRIMARY": "glm-5.2",
-    "MODEL_FALLBACKS": "gpt-oss:20b,nemotron-3-nano:30b,gemma4:31b",
+    "MODEL_PRIMARY": "gpt-oss:120b",
+    "MODEL_FALLBACKS": "nemotron-3-ultra,gpt-oss:20b,nemotron-3-nano:30b,nemotron-3-super,gemma4:31b",
     "MODEL_TIMEOUT_SECONDS": "240",
     "TELEGRAM_MODE": "webhook",
     "PERSISTENCE_BACKEND": "chained",
@@ -52,14 +52,20 @@ PLAIN = {
     ),
 }
 
-# Secrets: name -> environment variable holding the value.
-SECRET_SOURCES = {
-    "OLLAMA_API_KEY": "OLLAMA_API_KEY",
-    "GIST_API_KEY": "GIST_API_KEY",
-    "API_AUTH_TOKEN": "API_AUTH_TOKEN",
-    "TELEGRAM_WEBHOOK_SECRET": "TELEGRAM_WEBHOOK_SECRET",
-    "TELEGRAM_BOT_TOKEN": "TELEGRAM_BOT_TOKEN",
-    "TELEGRAM_ALLOWED_USERS": "TELEGRAM_ALLOWED_USERS",
+# Secrets: deployed name -> environment variables that may supply it, in order
+# of preference.
+#
+# The alias matters: GIST_API_KEY falls back to GITHUB_API_KEY, mirroring
+# config.py, which does the same. Render's PUT /env-vars REPLACES the whole set,
+# so a secret that is silently skipped here would be DELETED from the running
+# service -- which would quietly break durable state on an ephemeral filesystem.
+SECRET_SOURCES: dict[str, tuple[str, ...]] = {
+    "OLLAMA_API_KEY": ("OLLAMA_API_KEY",),
+    "GIST_API_KEY": ("GIST_API_KEY", "GITHUB_API_KEY"),
+    "API_AUTH_TOKEN": ("API_AUTH_TOKEN",),
+    "TELEGRAM_WEBHOOK_SECRET": ("TELEGRAM_WEBHOOK_SECRET",),
+    "TELEGRAM_BOT_TOKEN": ("TELEGRAM_BOT_TOKEN",),
+    "TELEGRAM_ALLOWED_USERS": ("TELEGRAM_ALLOWED_USERS",),
 }
 
 
@@ -82,14 +88,21 @@ def load_dotenv() -> None:
 def build_env() -> list[dict[str, str]]:
     env = dict(PLAIN)
     missing = []
-    for target, source in SECRET_SOURCES.items():
-        value = os.environ.get(source)
+    for target, sources in SECRET_SOURCES.items():
+        value = None
+        for source in sources:
+            value = os.environ.get(source)
+            if value:
+                break
         if value:
             env[target] = value
         else:
             missing.append(target)
     if missing:
         print(f"  not set locally (skipped): {', '.join(missing)}")
+        # A skipped secret is not harmless: PUT /env-vars replaces the whole
+        # set, so it would be removed from the running service.
+        print("  !! anything listed above will be REMOVED from the service unless it is already set there")
     print(f"  pushing {len(env)} variables:")
     for key in sorted(env):
         value = env[key]
@@ -117,6 +130,30 @@ def main() -> int:
             print(f"  {resp.text[:300]}")
             ok = False
             continue
+
+        # Read back the key NAMES only -- never the values -- so a silently
+        # dropped variable is caught here instead of at runtime.
+        # limit=100 is required: Render paginates this endpoint at 20 items by
+        # default, so a plain GET reports the surplus keys as "missing".
+        check = httpx.get(
+            f"{API}/services/{service_id}/env-vars?limit=100", headers=headers, timeout=60
+        )
+        if check.status_code < 400:
+            try:
+                landed = {
+                    item.get("envVar", item).get("key")
+                    for item in check.json()
+                    if isinstance(item, dict)
+                }
+            except (ValueError, AttributeError):
+                landed = set()
+            expected = {item["key"] for item in env_vars}
+            absent = sorted(expected - landed)
+            print(f"  read back {len(landed)} keys; missing: {absent if absent else 'none'}")
+            if absent:
+                ok = False
+        else:
+            print(f"  read-back failed -> http {check.status_code}")
 
         deploy = httpx.post(
             f"{API}/services/{service_id}/deploys",

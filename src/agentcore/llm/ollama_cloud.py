@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 import httpx
 
 from ..errors import ModelError, ModelUnavailableError
-from .base import LLMProvider, LLMResponse, Message, ToolCall, normalize_messages
+from .base import LLMProvider, LLMResponse, Message, SearchResult, ToolCall, normalize_messages
 
 log = logging.getLogger(__name__)
 
@@ -94,6 +94,53 @@ class OllamaCloudProvider(LLMProvider):
             log.warning("model listing failed", extra={"error": str(exc)})
             return []
         return [m.get("name", "") for m in payload.get("models", []) if m.get("name")]
+
+    async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
+        """Ollama Cloud's native web search.
+
+        This is the real-time path: the vendor performs the search and returns
+        extracted page *content* per result, so the agent gets current
+        information without scraping a search engine's HTML (which breaks the
+        moment the markup changes, and is rate-limited aggressively).
+
+        A failure here is reported as an empty result rather than an exception,
+        so the tool above can fall back to its own fetching path.
+        """
+        if not self._api_key or not query.strip():
+            return []
+        client = await self._http()
+        try:
+            resp = await client.post(
+                f"{self._base_url}/api/web_search",
+                headers=self._headers(),
+                json={"query": query.strip(), "max_results": max(1, min(max_results, 10))},
+            )
+        except httpx.HTTPError as exc:
+            log.warning("native web search failed", extra={"error": str(exc)[:200]})
+            return []
+        if resp.status_code >= 400:
+            log.warning(
+                "native web search rejected",
+                extra={"status": resp.status_code, "body": resp.text[:200]},
+            )
+            return []
+        try:
+            payload = resp.json()
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(payload, dict) or payload.get("error"):
+            return []
+        results: list[SearchResult] = []
+        for item in payload.get("results") or []:
+            if not isinstance(item, dict):
+                continue
+            url = str(item.get("url") or "")
+            title = str(item.get("title") or "")
+            content = str(item.get("content") or "")
+            if not (url or title or content):
+                continue
+            results.append(SearchResult(title=title, url=url, content=content, query=query))
+        return results
 
     def _classify(self, status: int, body: str) -> Exception:
         low = body.lower()

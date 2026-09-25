@@ -42,9 +42,16 @@ Kept because they explain the current design.
 
 ## Environment findings
 
-- **GLM 5.2 is not included in this Ollama Cloud tier.** Confirmed by API call; `glm-4.6`
-  and `glm-4.7` are retired. The router falls back to `gpt-oss:20b`, verified to support
-  native tool calling. GLM 5.2 remains the configured primary.
+- **Model entitlement, measured.** Walking the catalogue model by model showed only
+  `gpt-oss:120b`, `nemotron-3-ultra`, `nemotron-3-super`, `nemotron-3-nano:30b`,
+  `gemma4:31b` and `gpt-oss:20b` answer on this key. `glm-5.3`, `glm-5.2`, `kimi-k3`,
+  `deepseek-v4-pro:0813`, `minimax-m3` and `mistral-large-3:675b` all return **HTTP 402**
+  ("this model is not included in your free usage").
+  *A first parallel probe reported `429 too many concurrent requests` for most models — that
+  is the account's concurrency ceiling, not an entitlement answer, so the probe had to be
+  re-run sequentially. Reporting the 429 as "not entitled" would have been wrong.*
+- **Real-time search is a provider endpoint.** `POST /api/web_search` returns current
+  results together with extracted page content; it is now the primary search path.
 - Free-tier Render: spins down after ~15 min idle, ~1 min cold start, ephemeral disk,
   no persistent disks, 750 instance-hours/month per workspace.
 

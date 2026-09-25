@@ -63,8 +63,8 @@ SECRET_KEYS = (
 PLAIN_ENV = {
     "MODEL_PROVIDER": "ollama_cloud",
     "OLLAMA_BASE_URL": "https://ollama.com",
-    "MODEL_PRIMARY": "gpt-oss:20b",
-    "MODEL_FALLBACKS": "nemotron-3-nano:30b,gemma4:31b",
+    "MODEL_PRIMARY": "gpt-oss:120b",
+    "MODEL_FALLBACKS": "nemotron-3-ultra,gpt-oss:20b,nemotron-3-nano:30b,nemotron-3-super,gemma4:31b",
     "TELEGRAM_MODE": "webhook",
     "PERSISTENCE_BACKEND": "chained",
     "SANDBOX_ENABLED": "true",
