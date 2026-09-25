@@ -278,7 +278,7 @@ def _deploy_one(account: int, repo: str, extra_env: dict[str, str], branch: str)
         else:
             print(f"[account {account}] creating web service '{SERVICE_NAME}' from {repo}")
             service = client.create_service(
-                owner_id=owner_id, repo=repo, branch=branch
+                owner_id=owner_id, repo_url=repo, branch=branch
             )
         return {"account": account, "owner_id": owner_id, "service": service}
     finally:
